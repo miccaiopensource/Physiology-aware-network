@@ -133,58 +133,38 @@ class Evolution(nn.Module):
         # i_poly = i_it_poly  + snake(init_input, adj).permute(0, 2, 1)
         return i_poly
 
-    def forward(self, output, cnn_feature, batch=None):
-    # def forward(self, output, cnn_feature,cnn_feature_seg, batch=None):
+    # def forward(self, output, cnn_feature, batch=None):
+    def forward(self, output, cnn_feature,cnn_feature_seg, batch=None):
         ret = output
-        # ret.update({'check':True})
-
-
-        # print("batch:",batch)
 
         if batch is not None and 'test' not in batch['meta']:
             with torch.no_grad():
                 init = self.prepare_training(output, batch)
-            # print("in training")
 
-            # print("cnn_feature:",cnn_feature.shape)
-            # print("init['i_it_4py']shape:", init['i_it_4py'].shape)
-            # print("init['c_it_4py']_shape:", init['c_it_4py'].shape)
-
-
-            # ex_pred = self.init_poly(self.init_gcn, cnn_feature, init['i_it_4py'], init['c_it_4py'], init['4py_ind'])
-            # ret.update({'ex_pred': ex_pred, 'i_gt_4py': output['i_gt_4py']})
-
-            # with torch.no_grad():
-            #     init = self.prepare_training_evolve(output, batch, init)
-
-            py_pred = self.evolve_poly(self.evolve_gcn, cnn_feature, init['i_it_py'], init['c_it_py'], init['py_ind'])
-            # py_pred = self.evolve_poly_seg(self.evolve_gcn, cnn_feature, cnn_feature_seg, init['i_it_py'],init['c_it_py'], init['py_ind'])
+            # py_pred = self.evolve_poly(self.evolve_gcn, cnn_feature, init['i_it_py'], init['c_it_py'], init['py_ind'])
+            py_pred = self.evolve_poly_seg(self.evolve_gcn, cnn_feature, cnn_feature_seg, init['i_it_py'],init['c_it_py'], init['py_ind'])
             py_preds = [py_pred]
             for i in range(self.iter):
                 py_pred = py_pred / snake_config.ro
                 c_py_pred = snake_gcn_utils.img_poly_to_can_poly(py_pred)
                 evolve_gcn = self.__getattr__('evolve_gcn'+str(i))
-                py_pred = self.evolve_poly(evolve_gcn, cnn_feature, py_pred, c_py_pred, init['py_ind'])
-                # py_pred = self.evolve_poly_seg(evolve_gcn, cnn_feature, cnn_feature_seg, py_pred, c_py_pred,init['py_ind'])
+                # py_pred = self.evolve_poly(evolve_gcn, cnn_feature, py_pred, c_py_pred, init['py_ind'])
+                py_pred = self.evolve_poly_seg(evolve_gcn, cnn_feature, cnn_feature_seg, py_pred, c_py_pred,init['py_ind'])
                 py_preds.append(py_pred)
             ret.update({'py_pred': py_preds, 'i_gt_py': output['i_gt_py'] * snake_config.ro})
-        #     print("self.traning:", self.training)
-        # print("evolve: mid")
-        # sys.exit()
+
 
         if not self.training:
             with torch.no_grad():
                 ret.update({'check': True})
                 ret.update({'mean_0': 0,'mean_1': 0,'cov_0': 0,'cov_1': 0,})
-                # init = self.prepare_testing_init(output)
-                # ex = self.init_poly(self.init_gcn, cnn_feature, init['i_it_4py'], init['c_it_4py'], init['ind'])
-                # ret.update({'ex': ex})
+
                 ind=[]
-                # print("output_out_shape:",output["prob_map"].shape)
 
 
 
-                # print("ind:",ind)
+
+
 
                 evolve = self.prepare_testing_evolve_hybrid(output, cnn_feature.size(2), cnn_feature.size(3),batch)
                 if not output['check']:
@@ -195,18 +175,14 @@ class Evolution(nn.Module):
                         ind.append(i)
                 ind = torch.Tensor(ind)
                 py = self.evolve_poly(self.evolve_gcn, cnn_feature, evolve['i_it_py'], evolve['c_it_py'], ind)
-                # print("evolve['i_it_py']_shape:", evolve['i_it_py'])
-                # print("cnn_feature_shape:",cnn_feature.shape)
-                # print("cnn_feature_seg_shape:", cnn_feature_seg.shape)
 
-                # py = self.evolve_poly_seg(self.evolve_gcn, cnn_feature, cnn_feature_seg, evolve['i_it_py'],evolve['c_it_py'], ind)
                 pys = [py]
                 for i in range(self.iter):
                     py = py / snake_config.ro
                     c_py = snake_gcn_utils.img_poly_to_can_poly(py)
                     evolve_gcn = self.__getattr__('evolve_gcn'+str(i))
-                    # py = self.evolve_poly_seg(evolve_gcn, cnn_feature,cnn_feature_seg, py, c_py, ind)
-                    py = self.evolve_poly(evolve_gcn, cnn_feature,  py , c_py, ind)
+                    py = self.evolve_poly_seg(evolve_gcn, cnn_feature,cnn_feature_seg, py, c_py, ind)
+                    # py = self.evolve_poly(evolve_gcn, cnn_feature,  py , c_py, ind)
                     pys.append(py / snake_config.ro)
                 ret.update({'py': pys,'i_it_py':evolve['i_it_py']})
 
